@@ -23,3 +23,25 @@ export type GitHubPullRequestGet =
 
 export type GitHubReviewComment =
   RestEndpointMethodTypes["pulls"]["createReviewComment"]["response"]["data"];
+
+export type PlatformPullRequest = GitHubPullRequestGet | BitBucketPullRequestGet;
+
+export interface BitBucketPullRequestGet {
+  id: number;
+  title: string;
+  description: string;
+  state: string;
+  author: {
+    username: string;
+  };
+  source: {
+    branch: {
+      name: string;
+    };
+  };
+  destination: {
+    branch: {
+      name: string;
+    };
+  };
+}

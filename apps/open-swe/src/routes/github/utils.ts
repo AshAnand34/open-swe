@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { Octokit } from "@octokit/core";
-import { GitHubPullRequestGet } from "../../utils/github/types.js";
+import { GitHubPullRequestGet, PlatformPullRequest, BitBucketPullRequestGet } from "../../utils/github/types.js";
 import {
   SimpleIssue,
   SimplePullRequest,
@@ -39,6 +39,13 @@ export function createDevMetadataComment(runId: string, threadId: string) {
 
 export function mentionsGitHubUserForTrigger(commentBody: string): boolean {
   return /@open-swe\b/.test(commentBody);
+}
+
+export function mentionsPlatformUserForTrigger(commentBody: string): boolean {
+  const platformTriggerUsername = process.env.PLATFORM === "bitbucket"
+    ? process.env.BITBUCKET_TRIGGER_USERNAME || "@open-swe"
+    : "@open-swe";
+  return new RegExp(`\\b${platformTriggerUsername}\\b`).test(commentBody);
 }
 
 export function extractLinkedIssues(prBody: string): number[] {
@@ -160,22 +167,42 @@ export async function getPrContext(
 }
 
 export function convertPRPayloadToPullRequestObj(
-  payloadPullRequest: GitHubPullRequestGet,
+  payloadPullRequest: PlatformPullRequest,
   prNumber: number,
 ): SimplePullRequest {
+  if (process.env.PLATFORM === "bitbucket") {
+    const bitbucketPR = payloadPullRequest as BitBucketPullRequestGet;
+    return {
+      number: prNumber,
+      title: bitbucketPR.title,
+      body: bitbucketPR.description ?? "",
+      state: bitbucketPR.state,
+      author: bitbucketPR.author.username,
+      head: {
+        ref: bitbucketPR.source.branch.name,
+        sha: "", // BitBucket does not provide SHA in the same way
+      },
+      base: {
+        ref: bitbucketPR.destination.branch.name,
+        sha: "", // BitBucket does not provide SHA in the same way
+      },
+    };
+  }
+
+  const githubPR = payloadPullRequest as GitHubPullRequestGet;
   return {
     number: prNumber,
-    title: payloadPullRequest.title,
-    body: payloadPullRequest.body ?? "",
-    state: payloadPullRequest.state,
-    author: payloadPullRequest.user?.login,
+    title: githubPR.title,
+    body: githubPR.body ?? "",
+    state: githubPR.state,
+    author: githubPR.user?.login,
     head: {
-      ref: payloadPullRequest.head.ref,
-      sha: payloadPullRequest.head.sha,
+      ref: githubPR.head.ref,
+      sha: githubPR.head.sha,
     },
     base: {
-      ref: payloadPullRequest.base.ref,
-      sha: payloadPullRequest.base.sha,
+      ref: githubPR.base.ref,
+      sha: githubPR.base.sha,
     },
   };
 }

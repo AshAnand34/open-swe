@@ -4,8 +4,9 @@ import {
 } from "./webhook-handler-base.js";
 import { RequestSource } from "../../constants.js";
 import { ManagerGraphUpdate } from "@openswe/shared/open-swe/manager/types";
+import { GraphConfig } from "@openswe/shared/open-swe/types";
 import {
-  mentionsGitHubUserForTrigger,
+  mentionsPlatformUserForTrigger,
   extractLinkedIssues,
   getPrContext,
   convertPRPayloadToPullRequestObj,
@@ -17,9 +18,8 @@ import {
   SimplePullRequestReview,
   SimpleTriggerComment,
 } from "./types.js";
-import { GitHubPullRequestGet } from "../../utils/github/types.js";
-import { GraphConfig } from "@openswe/shared/open-swe/types";
-import { GITHUB_TRIGGER_USERNAME } from "./constants.js";
+import { PLATFORM_TRIGGER_USERNAME } from "./constants.js";
+import { PlatformPullRequest } from "../../utils/github/types.js";
 
 export interface PRWebhookContext extends WebhookHandlerContext {
   prNumber: number;
@@ -27,15 +27,15 @@ export interface PRWebhookContext extends WebhookHandlerContext {
 
 export abstract class PRWebhookHandlerBase extends WebhookHandlerBase {
   /**
-   * Validates that the content mentions @open-swe
+   * Validates that the content mentions the platform-specific trigger username
    */
-  protected validateOpenSWEMention(
+  protected validatePlatformMention(
     content: string,
     logContext: string,
   ): boolean {
-    if (!mentionsGitHubUserForTrigger(content)) {
+    if (!mentionsPlatformUserForTrigger(content)) {
       this.logger.info(
-        `${logContext} does not mention ${GITHUB_TRIGGER_USERNAME}, skipping`,
+        `${logContext} does not mention ${PLATFORM_TRIGGER_USERNAME}, skipping`,
       );
       return false;
     }
@@ -88,7 +88,7 @@ export abstract class PRWebhookHandlerBase extends WebhookHandlerBase {
    * Creates PR trigger data structure
    */
   protected createPRTriggerData(
-    pullRequest: GitHubPullRequestGet,
+    pullRequest: PlatformPullRequest,
     prNumber: number,
     triggerComment: SimpleTriggerComment,
     prComments: SimplePullRequestComment[],
@@ -112,7 +112,7 @@ export abstract class PRWebhookHandlerBase extends WebhookHandlerBase {
   protected createPRRunInput(
     prompt: string,
     context: PRWebhookContext,
-    pullRequest: GitHubPullRequestGet,
+    pullRequest: any,
   ): ManagerGraphUpdate {
     return {
       messages: [
