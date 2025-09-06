@@ -22,6 +22,9 @@ import { GraphConfig } from "@openswe/shared/open-swe/types";
 import { ManagerGraphUpdate } from "@openswe/shared/open-swe/manager/types";
 import { StreamMode } from "@langchain/langgraph-sdk";
 import { extractContentWithoutDetailsFromIssueBody } from "../../utils/github/issue-messages.js";
+import { BitBucketClient } from "../../utils/bitbucket/client.js"; // Hypothetical BitBucket client
+
+export type PlatformClient = Octokit | BitBucketClient;
 
 export function createDevMetadataComment(runId: string, threadId: string) {
   return `<details>
@@ -71,7 +74,7 @@ export function extractLinkedIssues(prBody: string): number[] {
  * - reviews: PR reviews including their own reviewComments
  */
 export async function getPrContext(
-  octokit: Octokit,
+  client: PlatformClient,
   inputs: {
     owner: string;
     repo: string;
@@ -85,6 +88,34 @@ export async function getPrContext(
 }> {
   const { owner, repo, prNumber, linkedIssueNumbers } = inputs;
 
+  if (process.env.PLATFORM === "bitbucket") {
+    // BitBucket API calls
+    const bitbucketClient = client as BitBucketClient;
+    const prComments = await bitbucketClient.getPullRequestComments(
+      owner,
+      repo,
+      prNumber,
+    );
+    const reviews = await bitbucketClient.getPullRequestReviews(
+      owner,
+      repo,
+      prNumber,
+    );
+    const linkedIssues = await Promise.all(
+      linkedIssueNumbers.map((issueNumber) =>
+        bitbucketClient.getIssue(owner, repo, issueNumber),
+      ),
+    );
+
+    return {
+      prComments,
+      reviews,
+      linkedIssues,
+    };
+  }
+
+  // GitHub API calls
+  const octokit = client as Octokit;
   const [issueCommentsRes, reviewCommentsRes, reviewsRes] = await Promise.all([
     octokit.request(
       "GET /repos/{owner}/{repo}/issues/{issue_number}/comments",
